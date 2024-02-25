@@ -1,0 +1,34 @@
+#remote_inference_balance #remote_inference_balance {
+    width: 150px;
+    height: 60px;
+    background-color: var(--input-background-fill);
+    border: 2px solid var(--highlight-color);
+    border-radius: 7px;
+    padding: 5px;
+    box-sizing: border-box;
+
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    z-index: 500;
+}
+
+#remote_inference_balance #remote_inference_balance p {
+    margin: 0;
+    margin-bottom: -5px;
+}
+
+#remote_inference_balance .pending, #setting_remote_balance .pending {
+    opacity: 1.0 !important
+}
+
+#setting_remote_balance .translucent {
+    display: none;
+}
+
+.remote_inference_balance_count {
+    text-align: center;
+    font-weight: bold;
+    font-size: large;
+    margin: 0;
+}
