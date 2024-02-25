@@ -43,7 +43,7 @@ Aimed to be universal for all providers, feel free to request other providers.
 - Stable Horde worker settings
 - Dynamic samplers/upscalers lists
 - API calls caching
-- Hide NSFW networks option (Stable Horde / OmniInfer)
+- Hide NSFW networks option
 
 ## Why yet another extension ?
 There already are plenty of integrations of AI Horde. The point of this extension is to bring all remote providers into the same familiar UI instead of relying on other websites.
