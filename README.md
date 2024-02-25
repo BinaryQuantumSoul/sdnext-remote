@@ -1,4 +1,6 @@
-# sdnext-remote-inference
+# sdnext-remote
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
 SD.Next extension to send compute tasks to remote inference servers.
 Aimed to be universal for all providers, feel free to request other providers.
 
@@ -51,7 +53,7 @@ Eventually I'd also like to add support for other SD.Next extensions like dynami
 # Installation & usage
 1. Launch SD.Next with `--backend original` option
 2. Installation
-    1. Go to extensions > manual install > paste `https://github.com/BinaryQuantumSoul/sdnext-remote-inference` > install
+    1. Go to extensions > manual install > paste `https://github.com/BinaryQuantumSoul/sdnext-remote` > install
     2. Go to extensions > manage extensions > apply changes & restart server
     3. Go to system > settings > remote inference > set right api endpoints & keys
 3. Usage
@@ -59,8 +61,6 @@ Eventually I'd also like to add support for other SD.Next extensions like dynami
     2. Set generations parameters as usual and click generate
     
 # License
-Shield: [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
-
 This work is licensed under a
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
 
