@@ -49,6 +49,26 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
             payload['init_images'] = [encode_image(img) for img in payload['init_images']]
         
         return None, payload
+    
+
+    #================================== ComfyUI & ComfyICU ==================================
+    elif service in [RemoteService.ComfyUI, RemoteService.ComfyICU]:
+        if service == RemoteService.ComfyUI:
+            headers = None
+        elif service == RemoteService.ComfyICU:
+            headers = {
+                "accept": "application/json",
+                "Content-Type": "application/json",
+                "authorization": f"Bearer {get_api_key(service)}"
+            }
+
+        with open('extensions/sdnext-remote/workflows/txt2img.json') as f:
+            prompt = json.loads("\n".join(f.readlines()))
+        prompt["6"]["inputs"]["text"] = p.prompt
+        payload = {"prompt": prompt}
+
+        return headers, payload
+
 
     #================================== Stable Horde ==================================
     elif service ==  RemoteService.StableHorde:
@@ -138,6 +158,7 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
 
         return headers, payload
 
+
     #================================== OmniInfer ==================================
     elif service == RemoteService.OmniInfer:
         headers = {
@@ -207,16 +228,67 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
         info = {key: info[key] for key in processed_keys if key in info.keys()}
         return Processed(p=p, images_list=[decode_image(img) for img in response['images']], **info)
 
+
+    #================================== ComfyUI ==================================
+    elif service == RemoteService.ComfyUI:
+        response = request_or_error(service, '/prompt', method='POST', data=payload)
+        print(vars(response))
+    
+
+    #================================== ComfyICU ==================================
+    elif service == RemoteService.ComfyICU:
+        workflow_id = opts.remote_comfyicu_workflow_id
+        response = request_or_error(service, f'/v1/workflows/{workflow_id}/runs', headers, method='POST', data=payload)
+        uuid = response['id']
+        
+        state.sampling_steps = 100
+        state.sampling_step = 0
+        start = time.time()
+
+        while True:
+            response = request_or_error(service, f'/v1/workflows/{workflow_id}/runs/{uuid}', headers)
+
+            elapsed = int(time.time() - start)
+            state.sampling_steps = elapsed + 120
+            state.sampling_step = elapsed
+            
+            if response['status'] == 'COMPLETED':
+                state.sampling_step = state.sampling_steps
+                state.textinfo = "Downloading images..."
+
+                images = download_images(img['url'] for img in response['output'])
+
+                if len(images) == 0:
+                    raise RemoteInferenceProcessError(service, 'Generation failed, no output image')
+
+                n = len(images)
+                all_seeds=[p.seed + i*1000 for i in range(n)]
+                all_subseeds=n*[1000]
+                all_prompts=n*[p.prompt]
+                all_negative_prompts=n*[p.negative_prompt]
+                infotexts = n*[modules.processing.create_infotext(p, all_prompts, all_seeds, all_subseeds, all_negative_prompts=all_negative_prompts)]
+                
+                return Processed(
+                    p=p, 
+                    images_list=images,
+                    seed=p.seed,
+                    subseed=p.subseed,
+                    all_seeds=all_seeds,
+                    all_subseeds=all_subseeds,
+                    all_prompts=all_prompts,
+                    all_negative_prompts=all_negative_prompts,
+                    infotexts=infotexts
+                    )
+            
+            time.sleep(5)
+
     #================================== Stable Horde ==================================
     elif service ==  RemoteService.StableHorde:
-        n = p.n_iter*p.batch_size
-
         response = request_or_error(service, '/v2/generate/async', headers, method='POST', data=payload)
         uuid = response['id']
         
         state.sampling_steps = 100
         state.sampling_step = 0
-        state.job_count = n
         start = time.time()
 
         while True:
@@ -233,6 +305,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
                 response = request_or_error(service, f'/v2/generate/status/{uuid}', headers)
 
                 images = [get_image(generation['img']) for generation in response['generations']]
+                n = len(images)
                 all_seeds=[p.seed + i*1000 for i in range(n)]
                 all_subseeds=n*[1000]
                 all_prompts=n*[p.prompt]
@@ -254,6 +327,8 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
                 raise RemoteInferenceProcessError(service, 'Generation failed')
             elif not status['is_possible']:
                 raise RemoteInferenceProcessError(service, 'Generation not possible with current worker pool')
+            
+            time.sleep(5)
 
 
     #================================== OmniInfer ==================================
@@ -266,7 +341,6 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
 
         state.sampling_steps = 100
         state.sampling_step = 0
-        state.job_count = p.n_iter
         start = time.time()
 
         while True:
@@ -303,6 +377,8 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
                 raise RemoteInferenceProcessError(service, 'Generation failed')
             elif response['data']['status'] == 4:
                 raise RemoteInferenceProcessError(service, 'Generation timed out')
+            
+            time.sleep(5)
 
 def save_images_and_add_grid(proc: Processed, p:StableDiffusionProcessing):
     if opts.save and not p.do_not_save_samples:

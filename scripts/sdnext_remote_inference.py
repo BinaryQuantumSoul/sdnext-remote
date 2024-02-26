@@ -63,6 +63,9 @@ modules.script_callbacks.on_after_component(lambda component, **kwargs: extensio
 # SETTINGS
 def on_ui_settings():
     additional_settings = {
+        RemoteService.ComfyICU : {
+            'remote_comfyicu_workflow_id': OptionInfo('', f'ComfyICU workflow id')
+        },
         RemoteService.StableHorde : {
             'horde_nsfw': OptionInfo(False, "Enable NSFW generation (will skip anti-nsfw workers)"),
             'horde_censor_nsfw': OptionInfo(False, "Censor NSFW generations"),

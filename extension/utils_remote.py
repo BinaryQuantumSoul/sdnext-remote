@@ -17,9 +17,11 @@ ModelType = Enum('ModelType', ['CHECKPOINT','LORA','EMBEDDING','HYPERNET','VAE',
 class RemoteService(Enum):
     Local = ()
     SDNext = (True, 'http://127.0.0.1:7860', False)
+    ComfyUI = (True, 'http://127.0.0.1:8188', False)
     StableHorde = (True, 'https://stablehorde.net/api', True, 'https://stablehorde.net/register', 'Kudos', '')
     OmniInfer = (True, 'https://api.omniinfer.io', True, 'https://www.omniinfer.io/dashboard/key', 'Credits', '$')
-
+    ComfyICU = (True, 'https://comfy.icu/api', True, 'https://comfy.icu/account', 'Credits', '')
+    
     def __init__(self, has_endpoint=False, default_endpoint=None, has_key=False, url=None, credits_name=None, credits_symbol=None):
         self.has_endpoint = has_endpoint
         self.default_endpoint = default_endpoint
@@ -101,8 +103,9 @@ def clean_payload_dict(payload):
 def request_or_error(service, path, headers=None, method='GET', data=None):
     try:
         data = clean_payload_dict(data)
-        modules.shared.log.debug(f'RI: payload: {get_payload_str(data)}')
-        response = requests.request(method=method, url=get_remote_endpoint(service)+path, headers=headers, json=data)
+        url = get_remote_endpoint(service)+path
+        modules.shared.log.debug(f'RI: payload {url}: {get_payload_str(data)}')
+        response = requests.request(method=method, url=url, headers=headers, json=data)
         modules.shared.log.debug(f'RI: response: {get_payload_str(json.loads(response.content))}')
     except Exception as e:
         raise RemoteInferenceAPIError(service, e)
