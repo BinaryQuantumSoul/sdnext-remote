@@ -21,42 +21,34 @@ class RemoteModel:
 def fake_reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model'):
     try:
         checkpoint_info = info or modules.sd_models.select_checkpoint(op=op)
+        model = RemoteModel(checkpoint_info)
+
         opts.sd_model_checkpoint = checkpoint_info.title
-        return RemoteModel(checkpoint_info)
+        modules.shared.sd_model = model
+        return model
     except (StopIteration, AttributeError):
+        log.warning("RI: Unable to load model, try refreshing model list")
         return None
 
-def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Processed:
-    p.seed = int(modules.processing.get_fixed_seed(p.seed))
-    p.subseed = int(modules.processing.get_fixed_seed(p.subseed))
-    p.prompt = modules.shared.prompt_styles.apply_styles_to_prompt(p.prompt, p.styles)
-    p.negative_prompt = modules.shared.prompt_styles.apply_negative_styles_to_prompt(p.negative_prompt, p.styles)
-
+def build_payload(service: RemoteService, p: StableDiffusionProcessing):
     txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
     img2img = isinstance(p, StableDiffusionProcessingImg2Img)
     if not txt2img and not img2img:
         raise TypeError("Neither txt2img nor img2img")
     control_units = [u for u in p.script_args if isinstance(u, imported_scripts['controlnet'].module.UiControlNetUnit) and u.enabled]
+    model = modules.shared.sd_model.sd_checkpoint_info.filename
 
     #================================== SD.Next ==================================
     if service == RemoteService.SDNext:
         txt2img_keys = ["enable_hr", "denoising_strength", "firstphase_width", "firstphase_height", "hr_scale", "hr_force", "hr_upscaler", "hr_second_pass_steps", "hr_resize_x", "hr_resize_y", "refiner_steps", "refiner_start", "refiner_prompt", "refiner_negative", "prompt", "styles", "seed", "subseed", "subseed_strength", "seed_resize_from_h", "seed_resize_from_w", "sampler_name", "latent_sampler", "batch_size", "n_iter", "steps", "cfg_scale", "image_cfg_scale", "clip_skip", "width", "height", "full_quality", "restore_faces", "tiling", "do_not_save_samples", "do_not_save_grid", "negative_prompt", "eta", "diffusers_guidance_rescale", "override_settings", "override_settings_restore_afterwards", "sampler_index", "script_name", "send_images", "save_images", "alwayson_scripts"] #"script_args", "sampler_index"
         img2img_keys = ["init_images", "resize_mode", "denoising_strength", "image_cfg_scale", "mask", "mask_blur", "inpainting_fill", "inpaint_full_res", "inpaint_full_res_padding", "inpainting_mask_invert", "initial_noise_multiplier", "refiner_steps", "refiner_start", "refiner_prompt", "refiner_negative", "prompt", "styles", "seed", "subseed", "subseed_strength", "seed_resize_from_h", "seed_resize_from_w", "sampler_name", "latent_sampler", "batch_size", "n_iter", "steps", "cfg_scale", "clip_skip", "width", "height", "full_quality", "restore_faces", "tiling", "do_not_save_samples", "do_not_save_grid", "negative_prompt", "eta", "diffusers_guidance_rescale", "override_settings", "override_settings_restore_afterwards", "sampler_index", "include_init_images", "script_name", "send_images", "save_images", "alwayson_scripts"] #"script_args", "sampler_index"
-        processed_keys = ["seed", "info", "subseed", "all_prompts", "all_negative_prompts", "all_seeds", "all_subseeds", "index_of_first_image", "infotexts", "comments"]
-
-        request_or_error(service, '/sdapi/v1/options', method='POST', data={'sd_model_checkpoint': opts.sd_model_checkpoint})
-        request_or_error(service, '/sdapi/v1/reload-checkpoint', method='POST')
 
         data = vars(p)
         payload = {key: data[key] for key in (txt2img_keys if txt2img else img2img_keys) if key in data.keys() and data[key] is not None}
         if img2img:
             payload['init_images'] = [encode_image(img) for img in payload['init_images']]
-
-        response = request_or_error(service, ('/sdapi/v1/txt2img' if txt2img else '/sdapi/v1/img2img'), method='POST', data=payload)
-
-        info = json.loads(response['info'])
-        info = {key: info[key] for key in processed_keys if key in info.keys()}
-        return Processed(p=p, images_list=[decode_image(img) for img in response['images']], **info)
+        
+        return None, payload
 
     #================================== Stable Horde ==================================
     elif service ==  RemoteService.StableHorde:
@@ -87,29 +79,44 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
             "prompt": f"{prompt}###{negative_prompt}" if negative_prompt else prompt,
             "params": {
                 "sampler_name": stable_horde_samplers[p.sampler_name],
-                "karras": opts.schedulers_sigma == 'karras',
                 "cfg_scale": p.cfg_scale,
-                "clip_skip": p.clip_skip,
+                "denoising_strength": p.denoising_strength,
                 "seed": str(p.seed),
-                "seed_variation": 1000,
                 "height": p.height,
                 "width": p.width,
-                "steps": p.steps,
-                "n": n,
+                "seed_variation": 1000,
+                # post_processing
+                "karras": opts.schedulers_sigma == 'karras',
                 "tiling": p.tiling,
                 "hires_fix": p.enable_hr,
-                "denoising_strength": p.denoising_strength,
+                "clip_skip": p.clip_skip,
+                # control_type (later)
+                # image_is_control
+                # return_control_map
+                # facefixer_strength
                 "loras": [{"name": i, "model": j} for i,j in loras],
-                "tis": [{"name": i} for i in tis]
+                "tis": [{"name": i} for i in tis],
+                # special
+                "steps": p.steps,
+                "n": n
             },
-            "models": [modules.shared.sd_model.sd_checkpoint_info.filename],
             "nsfw": opts.horde_nsfw,
             "trusted_workers": opts.horde_trusted_workers,
             "slow_workers": opts.horde_slow_workers,
             "censor_nsfw": opts.horde_censor_nsfw,
             "workers": opts.horde_workers.split(',') if len(opts.horde_workers) > 0 else [],
             "worker_blacklist": opts.horde_worker_blacklist,
+            "models": [model],
+            # source_image (later)
+            # source_processing
+            # source_mask
+            # r2
             "shared": opts.horde_share_laion
+            # replacement_filter
+            # dry_run
+            # proxied_account
+            # disable_batching
+            # webhook
         }
 
         if txt2img:
@@ -128,6 +135,81 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
             if p.image_mask:
                 payload["source_processing"] = "inpainting"
                 payload["source_mask"] = encode_image(p.image_mask)
+
+        return headers, payload
+
+    #================================== OmniInfer ==================================
+    elif service == RemoteService.OmniInfer:
+        headers = {
+            "X-Omni-Key": get_api_key(service),
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "prompt": p.prompt,
+            "negative_prompt": p.negative_prompt,
+            "model_name": model,
+            "sampler_name": p.sampler_name,
+            "batch_size": p.batch_size,
+            "n_iter": p.n_iter,
+            "steps": p.steps,
+            "cfg_scale": p.cfg_scale,
+            "clip_skip": p.clip_skip,
+            "height": p.height,
+            "width": p.width,
+            "seed": p.seed
+        }
+
+        if txt2img:
+            if p.enable_hr:
+                payload.update({
+                    "enable_hr": True,
+                    "hr_upscaler": p.hr_upscaler,
+                    "hr_scale": p.hr_scale,
+                    "hr_resize_x": p.hr_resize_x,
+                    "hr_resize_y": p.hr_resize_y
+                })
+        elif img2img:
+            payload.update({
+                "init_images": [encode_image(img) for img in p.init_images],
+                "denoising_strength": p.denoising_strength,
+                "resize_mode": p.resize_mode,
+                "image_cfg_scale": p.image_cfg_scale,
+                "mask_blur": p.mask_blur,
+                "inpainting_fill": p.inpainting_fill,
+                "inpaint_full_res": p.inpaint_full_res,
+                "inpaint_full_res_padding": p.inpaint_full_res_padding,
+                "inpainting_mask_invert": p.inpainting_mask_invert,
+                "initial_noise_multiplier": p.initial_noise_multiplier
+            })
+            if p.image_mask:
+                payload["mask"] = [encode_image(p.image_mask)]
+
+        return headers, payload
+
+def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Processed:
+    p.seed = int(modules.processing.get_fixed_seed(p.seed))
+    p.subseed = int(modules.processing.get_fixed_seed(p.subseed))
+    p.prompt = modules.shared.prompt_styles.apply_styles_to_prompt(p.prompt, p.styles)
+    p.negative_prompt = modules.shared.prompt_styles.apply_negative_styles_to_prompt(p.negative_prompt, p.styles)
+
+    headers, payload = build_payload(service, p)
+    txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
+
+    #================================== SD.Next ==================================
+    if service == RemoteService.SDNext:
+        processed_keys = ["seed", "info", "subseed", "all_prompts", "all_negative_prompts", "all_seeds", "all_subseeds", "index_of_first_image", "infotexts", "comments"]
+
+        request_or_error(service, '/sdapi/v1/options', method='POST', data={'sd_model_checkpoint': opts.sd_model_checkpoint})
+        request_or_error(service, '/sdapi/v1/reload-checkpoint', method='POST')
+        response = request_or_error(service, ('/sdapi/v1/txt2img' if txt2img else '/sdapi/v1/img2img'), method='POST', data=payload)
+
+        info = json.loads(response['info'])
+        info = {key: info[key] for key in processed_keys if key in info.keys()}
+        return Processed(p=p, images_list=[decode_image(img) for img in response['images']], **info)
+
+    #================================== Stable Horde ==================================
+    elif service ==  RemoteService.StableHorde:
+        n = p.n_iter*p.batch_size
 
         response = request_or_error(service, '/v2/generate/async', headers, method='POST', data=payload)
         uuid = response['id']
@@ -176,57 +258,13 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
 
     #================================== OmniInfer ==================================
     elif service == RemoteService.OmniInfer:
-        headers = {
-            "X-Omni-Key": get_api_key(service),
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "prompt": p.prompt,
-            "negative_prompt": p.negative_prompt,
-            "model_name": modules.shared.sd_model.sd_checkpoint_info.filename,
-            "sampler_name": p.sampler_name,
-            "batch_size": p.batch_size,
-            "n_iter": p.n_iter,
-            "steps": p.steps,
-            "cfg_scale": p.cfg_scale,
-            "clip_skip": p.clip_skip,
-            "height": p.height,
-            "width": p.width,
-            "seed": p.seed
-        }
-
-        if txt2img:
-            if p.enable_hr:
-                payload.update({
-                    "enable_hr": True,
-                    "hr_upscaler": p.hr_upscaler,
-                    "hr_scale": p.hr_scale,
-                    "hr_resize_x": p.hr_resize_x,
-                    "hr_resize_y": p.hr_resize_y
-                })
-        elif img2img:
-            payload.update({
-                "init_images": [encode_image(img) for img in p.init_images],
-                "denoising_strength": p.denoising_strength,
-                "resize_mode": p.resize_mode,
-                "image_cfg_scale": p.image_cfg_scale,
-                "mask_blur": p.mask_blur,
-                "inpainting_fill": p.inpainting_fill,
-                "inpaint_full_res": p.inpaint_full_res,
-                "inpaint_full_res_padding": p.inpaint_full_res_padding,
-                "inpainting_mask_invert": p.inpainting_mask_invert,
-                "initial_noise_multiplier": p.initial_noise_multiplier
-            })
-            if p.image_mask:
-                payload["mask"] = [encode_image(p.image_mask)]
-
         response = request_or_error(service, ('/v2/txt2img' if txt2img else '/v2/img2img'), headers, method='POST', data=payload)
 
         if response['code'] != 0:
             raise RemoteInferenceProcessError(service, response['msg'])
         uuid = response['data']['task_id']
 
-        state.sampling_steps = p.steps
+        state.sampling_steps = 100
         state.sampling_step = 0
         state.job_count = p.n_iter
         start = time.time()
@@ -245,8 +283,9 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
                     state.assign_current_image(decode_image(last_image_string))
 
             elif response['data']['status'] == 2:
-                state.step = state.sampling_steps
+                state.sampling_step = state.sampling_steps
                 state.textinfo = "Downloading images..."
+
                 images = download_images(response['data']['imgs'])
                 info = json.loads(response['data']['info'])
                 return Processed(

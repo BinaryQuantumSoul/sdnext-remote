@@ -51,7 +51,7 @@ Eventually I'd also like to add support for other SD.Next extensions like dynami
 
 
 # Installation & usage
-1. Launch SD.Next with `--backend original` option
+1. Launch SD.Next with backend set to `original`
 2. Installation
     1. Go to extensions > manual install > paste `https://github.com/BinaryQuantumSoul/sdnext-remote` > install
     2. Go to extensions > manage extensions > apply changes & restart server

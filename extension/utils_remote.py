@@ -101,12 +101,9 @@ def clean_payload_dict(payload):
 def request_or_error(service, path, headers=None, method='GET', data=None):
     try:
         data = clean_payload_dict(data)
-        log = method != 'GET'
-        if log:
-            modules.shared.log.debug(f'RI: payload: {get_payload_str(data)}')
+        modules.shared.log.debug(f'RI: payload: {get_payload_str(data)}')
         response = requests.request(method=method, url=get_remote_endpoint(service)+path, headers=headers, json=data)
-        if log:
-            modules.shared.log.debug(f'RI: response: {get_payload_str(json.loads(response.content))}')
+        modules.shared.log.debug(f'RI: response: {get_payload_str(json.loads(response.content))}')
     except Exception as e:
         raise RemoteInferenceAPIError(service, e)
     if response.status_code not in (200, 202):

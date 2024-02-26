@@ -11,10 +11,10 @@ from modules.shared import log
 import network
 import networks
 
-from extension.utils_remote import ModelType, RemoteService, get_current_api_service, get_remote_endpoint, safeget, get_or_error_with_cache, stable_horde_samplers
+from extension.utils_remote import ModelType, RemoteService, get_current_api_service, get_remote_endpoint, safeget, get_or_error_with_cache, stable_horde_controlnets, stable_horde_samplers
 
 def log_debug_model_list(model_type, api_service):
-    log.debug(f'RI: Listing {model_type.name.lower()}s from {api_service}')
+    log.info(f'RI: Listing {model_type.name.lower()}s from {api_service}')
 
 def log_info_model_count(model_type, api_service, count):
     log.info(f'Available {model_type.name.lower()}s: {api_service} items={count}')
@@ -66,7 +66,7 @@ def get_models(model_type: ModelType, service: RemoteService):
         elif model_type == ModelType.UPSCALER:
             return ['RealESRGAN_x2plus', 'RealESRGAN_x4plus', 'RealESRGAN_x4plus_anime_6B', 'NMKD_Siax', '4x_AnimeSharp']
         elif model_type == ModelType.CONTROLNET:
-            return ["canny", "hed", "depth", "normal", "openpose", "seg", "scribble", "fakescribbles", "hough"]
+            return stable_horde_controlnets
 
     #================================== OmniInfer ==================================
     elif service == RemoteService.OmniInfer:

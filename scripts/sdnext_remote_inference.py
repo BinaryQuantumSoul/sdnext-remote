@@ -33,7 +33,7 @@ def on_app_started(blocks, _app):
         })
     except ImportError as e:
         modules.shared.log.error("RI: Unable to load sdnext-remote-inference. You need to set SD backend to 'original'")
-        raise e
+        return
 
     # EXTRA NETWORKS
     modules.sd_models.list_models = make_conditional_hook(modules.sd_models.list_models, extension.remote_extra_networks.list_remote_models)
