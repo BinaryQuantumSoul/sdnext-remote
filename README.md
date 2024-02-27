@@ -17,7 +17,7 @@ Aimed to be universal for all providers, feel free to request other providers.
 
 # Features
 |                            | SD.Next API | ComfyUI API | StableHorde | OmniInfer | ComfyICU |
-|----------------------------|-------------|-------------|-------------|-----------|----------|
+|----------------------------|:-----------:|:-----------:|:-----------:|:---------:|:--------:|
 | ***Model browsing***       |             |             |             |           |          |
 | Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | ❌       |
 | Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ❌       |
