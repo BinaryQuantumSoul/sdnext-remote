@@ -8,34 +8,32 @@ Aimed to be universal for all providers, feel free to request other providers.
 > This project is still a Work In Progress, please report issues.
 
 # Providers
-- [SD.Next](https://github.com/vladmandic/automatic) (someone else running SD.Next API)
+- (WIP) [SD.Next](https://github.com/vladmandic/automatic) (someone else running SD.Next API)
 - (WIP) [ComfyUI](https://github.com/comfyanonymous/ComfyUI) (someone else running ComfyUI API)
-- [Stable Horde](https://stablehorde.net/) (free)
-- [OmniInfer](https://www.omniinfer.io/) (paid)
+- [StableHorde](https://stablehorde.net/) (free)
+- (WIP) [OmniInfer](https://www.omniinfer.io/) (paid)
+- (WIP) [ComfyICU](https://comfy.icu/) (paid)
 - (WIP) Others :D
 
 # Features
-|                             | SD.Next API | Stable Horde | OmniInfer  |
-|-----------------------------|:-----------:|:------------:|:----------:|
-| ***Model browsing***        |             |              |            |
-| Checkpoints browser         |      ✅     |      ✅      |     ✅     |
-| Loras browser               |      ✅     |      ⭕      |     ✅     |
-| Embeddings browser          |      ✅     |      ⭕      |     ✅     |
-| Hypernet browser            |      🆗     |      ❌      |     ❌     |
-| VAE browser                 |      🆗     |      ❌      |     🆗     |
-| ***Generation***            |             |              |            |
-| From Text                   |      ✅     |      ✅      |     ✅     |
-| From Image                  |      ✅     |      ✅      |     🆗+    |
-| Inpainting                  |      🆗+    |      ✅      |     🆗+    |
-| Second pass (hires)         |      🆗+    |      ✅      |     🆗+    |
-| Second pass (refiner)       |      🆗     |      ❌      |     🆗     |
-| Loras and TIs               |      🆗     |      ✅      |     ✅     |
-| ControlNet                  |      🆗     |      ✅      |     🆗     |
-| Upscale & postprocess       |      🆗     |      ✅      |     🆗     |
-| ***User***                  |             |              |            |
-| Balance (credits/kudos)     |      ⭕     |      ✅      |     ✅     |
-| Generation cost estimation  |      ⭕     |      🆗      |     🆗     |
-| Image rating                |      ⭕     |      🆗      |     ❌     |
+|                            | SD.Next API | ComfyUI API | StableHorde | OmniInfer | ComfyICU |
+|----------------------------|-------------|-------------|-------------|-----------|----------|
+| ***Model browsing***       |             |             |             |           |          |
+| Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | ❌       |
+| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ❌       |
+| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | ❌       |
+| ***Generation***           |             |             |             |           |          |
+| From Text                  | ✅          | 🆗+         | ✅          | ✅        | 🆗+      |
+| From Image                 | ✅          | 🆗          | ✅          | 🆗+       | 🆗       |
+| Inpainting                 | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
+| Second pass (hires)        | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
+| Second pass (refiner)      | 🆗          | 🆗          | ❌          | 🆗        | 🆗       |
+| Loras and TIs              | 🆗          | 🆗          | ✅          | ✅        | 🆗       |
+| ControlNet                 | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
+| Upscale & postprocess      | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
+| ***User***                 |             |             |             |           |          |
+| Balance (credits/kudos)    | ⭕          | ⭕          | ✅          | ✅        | ❌       |
+| Generation cost estimation | ⭕          | ⭕          | 🆗          | 🆗        | ❌       |
 
 - ✅ functional
 - 🆗+ work in progress
