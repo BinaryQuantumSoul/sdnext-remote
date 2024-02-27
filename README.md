@@ -4,11 +4,15 @@
 SD.Next extension to send compute tasks to remote inference servers.
 Aimed to be universal for all providers, feel free to request other providers.
 
+> [!NOTE]
+> This project is still a Work In Progress, please report issues.
+
 # Providers
 - [SD.Next](https://github.com/vladmandic/automatic) (someone else running SD.Next API)
-- [Stable Horde](https://stablehorde.net/) (free, crowd computers)
+- (WIP) [ComfyUI](https://github.com/comfyanonymous/ComfyUI) (someone else running ComfyUI API)
+- [Stable Horde](https://stablehorde.net/) (free)
 - [OmniInfer](https://www.omniinfer.io/) (paid)
-- other ?
+- (WIP) Others :D
 
 # Features
 |                             | SD.Next API | Stable Horde | OmniInfer  |
