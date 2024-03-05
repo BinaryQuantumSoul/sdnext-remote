@@ -279,6 +279,9 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
                     all_negative_prompts=all_negative_prompts,
                     infotexts=infotexts
                     )
+            elif response['status'] == 'ERROR':
+                error_message = response['output']['error']['exception_message']
+                raise RemoteInferenceProcessError(service, f'Generation failed with error {error_message}')
             
             time.sleep(5)
 
