@@ -18,17 +18,18 @@ class RemoteService(Enum):
     Local = ()
     SDNext = (True, 'http://127.0.0.1:7860', False)
     ComfyUI = (True, 'http://127.0.0.1:8188', False)
-    StableHorde = (True, 'https://stablehorde.net/api', True, 'https://stablehorde.net/register', 'Kudos', '')
-    OmniInfer = (True, 'https://api.omniinfer.io', True, 'https://www.omniinfer.io/dashboard/key', 'Credits', '$')
+    StableHorde = (True, 'https://stablehorde.net/api', True, 'https://stablehorde.net/register', 'Kudos', '', 'SD.NextRemote:rolling:QuantumSoul')
+    NovitaAI = (True, 'https://api.novita.ai', True, 'https://novita.ai/playground?utm_source=BinaryQuantumSoul_sdnext_remote&utm_medium=github', 'Credits', '$', 'BinaryQuantumSoul_sdnext_remote')
     ComfyICU = (True, 'https://comfy.icu/api', True, 'https://comfy.icu/account', 'Credits', '')
     
-    def __init__(self, has_endpoint=False, default_endpoint=None, has_key=False, url=None, credits_name=None, credits_symbol=None):
+    def __init__(self, has_endpoint=False, default_endpoint=None, has_key=False, url=None, credits_name=None, credits_symbol=None, client_agent=None):
         self.has_endpoint = has_endpoint
         self.default_endpoint = default_endpoint
         self.has_key = has_key
         self.url = url
         self.credits_name = credits_name
         self.credits_symbol = credits_symbol
+        self.client_agent = client_agent
 
 def get_remote_endpoint(remote_service):
     return modules.shared.opts.data.get(f'remote_{remote_service.name.lower()}_api_endpoint', remote_service.default_endpoint)
@@ -100,7 +101,9 @@ def clean_payload_dict(payload):
             return value
     return clean(payload)
 
-def request_or_error(service, path, headers=None, method='GET', data=None):
+def request_or_error(service, path, no_headers=False, method='GET', data=None):
+    headers = None if no_headers else build_header(service)
+
     try:
         data = clean_payload_dict(data)
         url = get_remote_endpoint(service)+path
@@ -115,7 +118,7 @@ def request_or_error(service, path, headers=None, method='GET', data=None):
     return json.loads(response.content)
 
 cache = {}
-def get_or_error_with_cache(service, path, headers=None, cache_time=None):
+def get_or_error_with_cache(service, path, no_headers=False, cache_time=None):
     global cache
     cache_key = (service, path)
     if cache_key in cache:
@@ -127,7 +130,7 @@ def get_or_error_with_cache(service, path, headers=None, cache_time=None):
                 return result
 
     try:
-        result = request_or_error(service, path, headers)
+        result = request_or_error(service, path, no_headers)
         cache[cache_key] = (result, time.time())
         return result
     except RemoteInferenceAPIError as e:
@@ -170,8 +173,28 @@ def get_image(img):
         return download_image(img)
     else:
         return decode_image(img)
-    
-stable_horde_client = "SD.Next Remote Inference:rolling:QuantumSoul"
+
+def build_header(service):
+    if service == RemoteService.ComfyICU:
+        return {
+            "authorization": f"Bearer {get_api_key(service)}",
+            "Content-Type": "application/json",
+            "accept": "application/json",
+        }
+    elif service ==  RemoteService.StableHorde:
+        return {
+            "apikey": get_api_key(service),
+            "Client-Agent": service.client_agent,
+            "Content-Type": "application/json"
+        }
+    elif service == RemoteService.NovitaAI:
+        return {
+            "Authorization": f"Bearer {get_api_key(service)}",
+            "X-Novita-Source": service.client_agent,
+            "Content-Type": "application/json"
+        }
+    else:
+        return None
 
 stable_horde_controlnets = ["canny", "hed", "depth", "normal", "openpose", "seg", "scribble", "fakescribbles", "hough"]
 

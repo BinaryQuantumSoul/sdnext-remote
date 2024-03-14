@@ -3,7 +3,7 @@ import time
 from modules import shared
 from modules.scripts_postprocessing import PostprocessedImage
 
-from extension.utils_remote import RemoteInferencePostprocessError, get_current_api_service, RemoteService, stable_horde_client, get_api_key, encode_image, get_image, request_or_error, imported_scripts
+from extension.utils_remote import RemoteInferencePostprocessError, get_current_api_service, RemoteService, encode_image, get_image, request_or_error, imported_scripts
 
 def remote_run(self, pp: PostprocessedImage, args):
     service = get_current_api_service()
@@ -36,24 +36,19 @@ def remote_run(self, pp: PostprocessedImage, args):
                 shared.log.warning(f"RI: {service} unable to do script of type {script_type}")
                 continue
         
-            headers = {
-                "apikey": get_api_key(service),
-                "Client-Agent": stable_horde_client,
-                "Content-Type": "application/json"
-            }
             payload = {
                 "forms": [{"name": form}],
                 "source_image": encode_image(pp.image),
-                "slow_workers": shared.opts.horde_slow_workers
+                "slow_workers": shared.opts.remote_stablehorde_slow_workers
             }
 
             shared.state.job = service.name
 
-            response = request_or_error(service, '/v2/interrogate/async', headers, method='POST', data=payload)
+            response = request_or_error(service, '/v2/interrogate/async', method='POST', data=payload)
             uuid = response['id']
 
             while True:
-                status = request_or_error(service, f'/v2/interrogate/status/{uuid}', headers)
+                status = request_or_error(service, f'/v2/interrogate/status/{uuid}')
                 state = status['state']
                 
                 if state == 'done':

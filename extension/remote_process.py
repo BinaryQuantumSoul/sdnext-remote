@@ -10,7 +10,7 @@ import modules.shared
 from modules.shared import state, log, opts
 import modules.images
 
-from extension.utils_remote import encode_image, decode_image, download_images, get_current_api_service, get_image, request_or_error, RemoteService, get_api_key, stable_horde_controlnets, stable_horde_client, RemoteInferenceProcessError, imported_scripts, stable_horde_samplers
+from extension.utils_remote import encode_image, decode_image, download_images, get_current_api_service, get_image, request_or_error, RemoteService, stable_horde_controlnets, RemoteInferenceProcessError, imported_scripts, stable_horde_samplers
 
 class RemoteModel:
     def __init__(self, checkpoint_info):
@@ -48,26 +48,17 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
         if img2img:
             payload['init_images'] = [encode_image(img) for img in payload['init_images']]
         
-        return None, payload
+        return payload
     
 
     #================================== ComfyUI & ComfyICU ==================================
     elif service in [RemoteService.ComfyUI, RemoteService.ComfyICU]:
-        if service == RemoteService.ComfyUI:
-            headers = None
-        elif service == RemoteService.ComfyICU:
-            headers = {
-                "accept": "application/json",
-                "Content-Type": "application/json",
-                "authorization": f"Bearer {get_api_key(service)}"
-            }
-
         with open('extensions/sdnext-remote/workflows/txt2img.json') as f:
             prompt = json.loads("\n".join(f.readlines()))
         prompt["6"]["inputs"]["text"] = p.prompt
         payload = {"prompt": prompt}
 
-        return headers, payload
+        return payload
 
 
     #================================== Stable Horde ==================================
@@ -90,11 +81,6 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
         if len(loras) > 5:
             raise RemoteInferenceProcessError(service, 'Max 5 loras')
 
-        headers = {
-            "apikey": get_api_key(service),
-            "Client-Agent": stable_horde_client,
-            "Content-Type": "application/json"
-        }
         payload = {
             "prompt": f"{prompt}###{negative_prompt}" if negative_prompt else prompt,
             "params": {
@@ -120,18 +106,18 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
                 "steps": p.steps,
                 "n": n
             },
-            "nsfw": opts.horde_nsfw,
-            "trusted_workers": opts.horde_trusted_workers,
-            "slow_workers": opts.horde_slow_workers,
-            "censor_nsfw": opts.horde_censor_nsfw,
-            "workers": opts.horde_workers.split(',') if len(opts.horde_workers) > 0 else [],
-            "worker_blacklist": opts.horde_worker_blacklist,
+            "nsfw": opts.remote_stablehorde_nsfw,
+            "trusted_workers": opts.remote_stablehorde_trusted_workers,
+            "slow_workers": opts.remote_stablehorde_slow_workers,
+            "censor_nsfw": opts.remote_stablehorde_censor_nsfw,
+            "workers": opts.remote_stablehorde_workers.split(',') if len(opts.remote_stablehorde_workers) > 0 else [],
+            "worker_blacklist": opts.remote_stablehorde_worker_blacklist,
             "models": [model],
             # source_image (later)
             # source_processing
             # source_mask
             # r2
-            "shared": opts.horde_share_laion
+            "shared": opts.remote_stablehorde_share_laion
             # replacement_filter
             # dry_run
             # proxied_account
@@ -156,15 +142,11 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
                 payload["source_processing"] = "inpainting"
                 payload["source_mask"] = encode_image(p.image_mask)
 
-        return headers, payload
+        return payload
 
 
-    #================================== OmniInfer ==================================
-    elif service == RemoteService.OmniInfer:
-        headers = {
-            "X-Omni-Key": get_api_key(service),
-            "Content-Type": "application/json"
-        }
+    #================================== NovitaAI ==================================
+    elif service == RemoteService.NovitaAI:
         payload = {
             "prompt": p.prompt,
             "negative_prompt": p.negative_prompt,
@@ -205,7 +187,7 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
             if p.image_mask:
                 payload["mask"] = [encode_image(p.image_mask)]
 
-        return headers, payload
+        return payload
 
 def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Processed:
     p.seed = int(modules.processing.get_fixed_seed(p.seed))
@@ -213,7 +195,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
     p.prompt = modules.shared.prompt_styles.apply_styles_to_prompt(p.prompt, p.styles)
     p.negative_prompt = modules.shared.prompt_styles.apply_negative_styles_to_prompt(p.negative_prompt, p.styles)
 
-    headers, payload = build_payload(service, p)
+    payload = build_payload(service, p)
     txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
 
     #================================== SD.Next ==================================
@@ -238,7 +220,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
     #================================== ComfyICU ==================================
     elif service == RemoteService.ComfyICU:
         workflow_id = opts.remote_comfyicu_workflow_id
-        response = request_or_error(service, f'/v1/workflows/{workflow_id}/runs', headers, method='POST', data=payload)
+        response = request_or_error(service, f'/v1/workflows/{workflow_id}/runs', method='POST', data=payload)
         uuid = response['id']
         
         state.sampling_steps = 100
@@ -246,7 +228,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
         start = time.time()
 
         while True:
-            response = request_or_error(service, f'/v1/workflows/{workflow_id}/runs/{uuid}', headers)
+            response = request_or_error(service, f'/v1/workflows/{workflow_id}/runs/{uuid}')
 
             elapsed = int(time.time() - start)
             state.sampling_steps = elapsed + 120
@@ -287,7 +269,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
 
     #================================== Stable Horde ==================================
     elif service ==  RemoteService.StableHorde:
-        response = request_or_error(service, '/v2/generate/async', headers, method='POST', data=payload)
+        response = request_or_error(service, '/v2/generate/async', method='POST', data=payload)
         uuid = response['id']
         
         state.sampling_steps = 100
@@ -295,7 +277,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
         start = time.time()
 
         while True:
-            status = request_or_error(service, f'/v2/generate/check/{uuid}', headers)
+            status = request_or_error(service, f'/v2/generate/check/{uuid}')
 
             elapsed = int(time.time() - start)
             state.sampling_steps = elapsed + status["wait_time"]
@@ -305,7 +287,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
                 state.sampling_step = state.sampling_steps
                 state.textinfo = "Downloading images..."
 
-                response = request_or_error(service, f'/v2/generate/status/{uuid}', headers)
+                response = request_or_error(service, f'/v2/generate/status/{uuid}')
 
                 images = [get_image(generation['img']) for generation in response['generations']]
                 n = len(images)
@@ -334,9 +316,9 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
             time.sleep(5)
 
 
-    #================================== OmniInfer ==================================
-    elif service == RemoteService.OmniInfer:
-        response = request_or_error(service, ('/v2/txt2img' if txt2img else '/v2/img2img'), headers, method='POST', data=payload)
+    #================================== NovitaAI ==================================
+    elif service == RemoteService.NovitaAI:
+        response = request_or_error(service, ('/v2/txt2img' if txt2img else '/v2/img2img'), method='POST', data=payload)
 
         if response['code'] != 0:
             raise RemoteInferenceProcessError(service, response['msg'])
@@ -347,7 +329,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
         start = time.time()
 
         while True:
-            response = request_or_error(service, f'/v2/progress?task_id={uuid}', headers)
+            response = request_or_error(service, f'/v2/progress?task_id={uuid}')
 
             if response['data']['status'] == 1:
                 elapsed = int(time.time() - start)

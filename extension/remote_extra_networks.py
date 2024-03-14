@@ -25,7 +25,7 @@ def sdnext_preview_url(url):
 def get_models(model_type: ModelType, service: RemoteService):
     #================================== SD.Next ==================================
     if service == RemoteService.SDNext:
-        model_list = get_or_error_with_cache(service, "/sdapi/v1/extra-networks")
+        model_list = get_or_error_with_cache(service, "/sdapi/v1/extra-networks", no_headers=True)
         for model in model_list:
             model.update({'name': model['name'].split('\\')[-1]})
         model_list = sorted(model_list, key=lambda model: str.lower(model['name']))
@@ -45,7 +45,7 @@ def get_models(model_type: ModelType, service: RemoteService):
     #================================== Stable Horde ==================================
     elif service == RemoteService.StableHorde:
         if model_type == ModelType.CHECKPOINT:          
-            model_list = get_or_error_with_cache(service, "/v2/status/models")
+            model_list = get_or_error_with_cache(service, "/v2/status/models", no_headers=True)
 
             model_list = filter(lambda model: model['type'] == 'image', model_list)
             
@@ -68,12 +68,12 @@ def get_models(model_type: ModelType, service: RemoteService):
         elif model_type == ModelType.CONTROLNET:
             return stable_horde_controlnets
 
-    #================================== OmniInfer ==================================
-    elif service == RemoteService.OmniInfer:
+    #================================== NovitaAI ==================================
+    elif service == RemoteService.NovitaAI:
         if not model_type in [ModelType.CHECKPOINT, ModelType.LORA, ModelType.EMBEDDING]:
             return
 
-        model_list = get_or_error_with_cache(service, "/v2/models")
+        model_list = get_or_error_with_cache(service, "/v2/models", no_headers=True)
         model_list = model_list['data']['models']
         for model in model_list:
             model.update({'name': model['name'].lstrip()})

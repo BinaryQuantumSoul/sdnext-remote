@@ -67,13 +67,13 @@ def on_ui_settings():
             'remote_comfyicu_workflow_id': OptionInfo('', f'ComfyICU workflow id')
         },
         RemoteService.StableHorde : {
-            'horde_nsfw': OptionInfo(False, "Enable NSFW generation (will skip anti-nsfw workers)"),
-            'horde_censor_nsfw': OptionInfo(False, "Censor NSFW generations"),
-            'horde_trusted_workers': OptionInfo(False, "Only trusted workers (slower but less risk)"),
-            'horde_slow_workers': OptionInfo(True, "Allow slow workers (extra kudos cost if disabled)"),
-            'horde_workers': OptionInfo('', "Comma-separated list of allowed/disallowed workers (max 5)"),
-            'horde_worker_blacklist': OptionInfo(False, "Above list is a blacklist instead of a whitelist"),
-            'horde_share_laion': OptionInfo(False, 'Share images with LAION for improving their dataset, reduce your kudos consumption by 2 (always True for anonymous users)')
+            'remote_stablehorde_nsfw': OptionInfo(False, "Enable NSFW generation (will skip anti-nsfw workers)"),
+            'remote_stablehorde_censor_nsfw': OptionInfo(False, "Censor NSFW generations"),
+            'remote_stablehorde_trusted_workers': OptionInfo(False, "Only trusted workers (slower but less risk)"),
+            'remote_stablehorde_slow_workers': OptionInfo(True, "Allow slow workers (extra kudos cost if disabled)"),
+            'remote_stablehorde_workers': OptionInfo('', "Comma-separated list of allowed/disallowed workers (max 5)"),
+            'remote_stablehorde_worker_blacklist': OptionInfo(False, "Above list is a blacklist instead of a whitelist"),
+            'remote_stablehorde_share_laion': OptionInfo(False, 'Share images with LAION for improving their dataset, reduce your kudos consumption by 2 (always True for anonymous users)')
         }
     }
 
@@ -91,7 +91,7 @@ def on_ui_settings():
             continue
 
         settings[f'remote_{name}_api_key'] = OptionInfo('', f'{service.name} API Key', gr.Textbox, {"type": "password"})
-        settings[f'remote_{name}_api_key_url'] = OptionInfo(f'<p>Get an API key <a href="{service.url}">here</a></p>', "", gr.HTML)
+        settings[f'remote_{name}_api_key_url'] = OptionInfo(f'<p>Get an API key <a href="{service.url}" target="_blank">here</a></p>', "", gr.HTML)
 
         if not service in additional_settings:
             continue
@@ -104,7 +104,7 @@ def on_ui_settings():
         'remote_extra_networks_cache_time': OptionInfo(600, 'Cache time (in seconds) for remote extra networks api calls', gr.Slider, {"minimum": 60, "maximum": 3600, "step": 60}),
         'remote_show_balance_box': OptionInfo(True, "Show top right available balance box"),
         'remote_show_balance_quick': OptionInfo(True, "Show quicksettings available balance"),
-        'remote_show_nsfw_models': OptionInfo(False, "Show NSFW networks (StableHorde/OmniInfer)"),
+        'remote_show_nsfw_models': OptionInfo(False, "Show NSFW networks (StableHorde/NovitaAI)"),
 
         'remote_inference_service': OptionInfo(RemoteService.Local.name, "Remote inference service", gr.Dropdown, {"choices": [e.name for e in RemoteService]}),
         'remote_balance': OptionInfo("", "", gr.HTML)

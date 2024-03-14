@@ -11,12 +11,12 @@ Aimed to be universal for all providers, feel free to request other providers.
 - (WIP) [SD.Next](https://github.com/vladmandic/automatic) (someone else running SD.Next API)
 - (WIP) [ComfyUI](https://github.com/comfyanonymous/ComfyUI) (someone else running ComfyUI API)
 - [StableHorde](https://stablehorde.net/) (free)
-- (WIP) [OmniInfer](https://www.omniinfer.io/) (paid)
+- (WIP) [NovitaAI](https://novita.ai/playground?utm_source=BinaryQuantumSoul_sdnext_remote&utm_medium=github) (paid, affiliated)
 - (WIP) [ComfyICU](https://comfy.icu/) (paid)
 - (WIP) Others :D
 
 # Features
-|                            | SD.Next API | ComfyUI API | StableHorde | OmniInfer | ComfyICU |
+|                            | SD.Next API | ComfyUI API | StableHorde | NovitaAI | ComfyICU |
 |----------------------------|:-----------:|:-----------:|:-----------:|:---------:|:--------:|
 | ***Model browsing***       |             |             |             |           |          |
 | Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | ❌       |
