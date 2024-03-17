@@ -10,7 +10,7 @@ import modules.shared
 from modules.shared import state, log, opts
 import modules.images
 
-from extension.utils_remote import encode_image, decode_image, download_images, get_current_api_service, get_image, request_or_error, RemoteService, RemoteInferenceProcessError, imported_scripts
+from extension.utils_remote import encode_image, decode_image, download_images, get_current_api_service, get_image, request_or_error, RemoteService, RemoteInferenceProcessError, imported_scripts, ModelType
 from extension.remote_extra_networks import get_models
 
 class RemoteModel:
@@ -56,6 +56,8 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
     elif service in [RemoteService.ComfyUI, RemoteService.ComfyICU]:
         with open('extensions/sdnext-remote/workflows/txt2img.json') as f:
             prompt = json.loads("\n".join(f.readlines()))
+
+        prompt["4"]["inputs"]["ckpt_name"] = model
         prompt["6"]["inputs"]["text"] = p.prompt
         payload = {"prompt": prompt}
 

@@ -127,7 +127,7 @@ def api_get_models(service: RemoteService):
             if url.startswith('https://civitai.com'):
                 startIndex = len("https://civitai.com/api/download/models/")
                 modelid = url[startIndex:url.find('?')]
-                out = json.loads(requests.get(f"https://civitai.com/api/v1/models/{modelid}").content)
+                out = None #out = json.loads(requests.get(f"https://civitai.com/api/v1/models/{modelid}").content)
                 image = safeget(out, 'modelVersions', 0, 'images', 0, 'url')
             
             model_list.append({'filename': filename, 'type': typ, 'image': image})

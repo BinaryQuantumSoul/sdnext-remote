@@ -19,9 +19,9 @@ Aimed to be universal for all providers, feel free to request other providers.
 |                            | SD.Next API | ComfyUI API | StableHorde | NovitaAI | ComfyICU |
 |----------------------------|:-----------:|:-----------:|:-----------:|:---------:|:--------:|
 | ***Model browsing***       |             |             |             |           |          |
-| Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | 🆗+       |
-| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | 🆗+      |
-| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | 🆗+      |
+| Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | ✅       |
+| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ✅      |
+| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | ✅      |
 | ***Generation***           |             |             |             |           |          |
 | From Text                  | ✅          | 🆗+         | ✅          | ✅        | 🆗+      |
 | From Image                 | ✅          | 🆗          | ✅          | 🆗+       | 🆗       |
