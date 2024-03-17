@@ -62,7 +62,7 @@ def import_script_data(dict):
     def get_script_data(path):
         script = next((data for data in itertools.chain(modules.scripts.scripts_data, modules.scripts.postprocessing_scripts_data) if data.path.endswith(path)), None)
         if not script:
-            raise ImportError(f"Script module not found: {path}")
+            modules.shared.log.warning(f"RI: Script module not found: {path}\nTry setting backend to 'original'")
         return script
 
     imported_scripts.update({name: get_script_data(path) for name,path in dict.items()})
@@ -167,9 +167,9 @@ def download_images(img_urls, num_threads=10):
 def decode_image(b64):
     return Image.open(io.BytesIO(base64.b64decode(b64)))
 
-def encode_image(image):
+def encode_image(image, format="WEBP"):
     buffer = io.BytesIO()
-    image.save(buffer, format="WEBP")
+    image.save(buffer, format=format)
     return base64.b64encode(buffer.getvalue()).decode()
 
 def get_image(img):

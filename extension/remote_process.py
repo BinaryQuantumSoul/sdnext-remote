@@ -36,11 +36,37 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
     img2img = isinstance(p, StableDiffusionProcessingImg2Img)
     if not txt2img and not img2img:
         raise TypeError("Neither txt2img nor img2img")
-    control_units = [u for u in p.script_args if isinstance(u, imported_scripts['controlnet'].module.UiControlNetUnit) and u.enabled]
+
+    if imported_scripts['controlnet']:
+        control_units = [u for u in p.script_args if isinstance(u, imported_scripts['controlnet'].module.UiControlNetUnit) and u.enabled]
+    else:
+        control_units = []
+
     model = modules.shared.sd_model.sd_checkpoint_info.filename
+
+    def get_loras_tis(prompt, negative_prompt, substract_lora, substract_ti):
+        pattern_lora = r'<lora:([^:\s]+):([^:\s]+)>'
+        pattern_embedding = r'embedding:([^\s]+)'
+
+        pos_loras = re.findall(pattern_lora, prompt)
+        neg_loras = re.findall(pattern_lora, negative_prompt)
+        loras = [(i,float(j)) for i,j in pos_loras] + [(i,-float(j)) for i,j in neg_loras]
+        tis = re.findall(r'embedding:(\w+)', prompt+' '+negative_prompt)
+
+        if substract_lora:
+            prompt = re.sub(pattern_lora, '', prompt)
+            negative_prompt = re.sub(pattern_lora, '', negative_prompt)
+
+        if substract_ti:
+            prompt = re.sub(pattern_embedding, '', prompt)
+            negative_prompt = re.sub(pattern_embedding, '', negative_prompt)
+
+        return prompt, negative_prompt, loras, tis
 
     #================================== SD.Next ==================================
     if service == RemoteService.SDNext:
+        p.prompt, p.negative_prompt, loras, tis = get_loras_tis(p.prompt, p.negative_prompt, False, True)
+
         txt2img_keys = ["enable_hr", "denoising_strength", "firstphase_width", "firstphase_height", "hr_scale", "hr_force", "hr_upscaler", "hr_second_pass_steps", "hr_resize_x", "hr_resize_y", "refiner_steps", "refiner_start", "refiner_prompt", "refiner_negative", "prompt", "styles", "seed", "subseed", "subseed_strength", "seed_resize_from_h", "seed_resize_from_w", "sampler_name", "latent_sampler", "batch_size", "n_iter", "steps", "cfg_scale", "image_cfg_scale", "clip_skip", "width", "height", "full_quality", "restore_faces", "tiling", "do_not_save_samples", "do_not_save_grid", "negative_prompt", "eta", "diffusers_guidance_rescale", "override_settings", "override_settings_restore_afterwards", "sampler_index", "script_name", "send_images", "save_images", "alwayson_scripts"] #"script_args", "sampler_index"
         img2img_keys = ["init_images", "resize_mode", "denoising_strength", "image_cfg_scale", "mask", "mask_blur", "inpainting_fill", "inpaint_full_res", "inpaint_full_res_padding", "inpainting_mask_invert", "initial_noise_multiplier", "refiner_steps", "refiner_start", "refiner_prompt", "refiner_negative", "prompt", "styles", "seed", "subseed", "subseed_strength", "seed_resize_from_h", "seed_resize_from_w", "sampler_name", "latent_sampler", "batch_size", "n_iter", "steps", "cfg_scale", "clip_skip", "width", "height", "full_quality", "restore_faces", "tiling", "do_not_save_samples", "do_not_save_grid", "negative_prompt", "eta", "diffusers_guidance_rescale", "override_settings", "override_settings_restore_afterwards", "sampler_index", "include_init_images", "script_name", "send_images", "save_images", "alwayson_scripts"] #"script_args", "sampler_index"
 
@@ -54,6 +80,8 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
 
     #================================== ComfyUI & ComfyICU ==================================
     elif service in [RemoteService.ComfyUI, RemoteService.ComfyICU]:
+        p.prompt, p.negative_prompt, loras, tis = get_loras_tis(p.prompt, p.negative_prompt, True, False)
+
         with open('extensions/sdnext-remote/workflows/txt2img.json') as f:
             prompt = json.loads("\n".join(f.readlines()))
 
@@ -66,6 +94,8 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
 
     #================================== StableHorde ==================================
     elif service ==  RemoteService.StableHorde:
+        p.prompt, p.negative_prompt, loras, tis = get_loras_tis(p.prompt, p.negative_prompt, True, False)
+
         stable_horde_controlnets = get_models(ModelType.CONTROLNET, service)
         stable_horde_samplers = get_models(ModelType.SAMPLER, service)
 
@@ -75,20 +105,11 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
             raise RemoteInferenceProcessError(service, 'Max 1 controlnet')
         elif img2img and len(control_units) > 0:
             raise RemoteInferenceProcessError(service, 'No controlnet for img2img')
-
-        def extract(instr, pattern):
-            return re.sub(pattern, '', instr), re.findall(pattern, instr)
-        
-        prompt, pos_loras = extract(p.prompt, r'<lora:(\w+):([\d.]+)>')
-        negative_prompt, neg_loras = extract(p.negative_prompt, r'<lora:(\w+):([\d.]+)>')
-        loras = [(i,float(j)) for i,j in pos_loras] + [(i,-float(j)) for i,j in neg_loras]
-        tis = re.findall(r'embedding:(\w+)', prompt+negative_prompt)
-
         if len(loras) > 5:
             raise RemoteInferenceProcessError(service, 'Max 5 loras')
 
         payload = {
-            "prompt": f"{prompt}###{negative_prompt}" if negative_prompt else prompt,
+            "prompt": f"{p.prompt}###{p.negative_prompt}" if p.negative_prompt else p.prompt,
             "params": {
                 "sampler_name": stable_horde_samplers[p.sampler_name],
                 "cfg_scale": p.cfg_scale,
@@ -153,45 +174,66 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
 
     #================================== NovitaAI ==================================
     elif service == RemoteService.NovitaAI:
+        p.prompt, p.negative_prompt, loras, tis = get_loras_tis(p.prompt, p.negative_prompt, True, True)
+
+        n = p.n_iter*p.batch_size
+
         payload = {
-            "prompt": p.prompt,
-            "negative_prompt": p.negative_prompt,
-            "model_name": model,
-            "sampler_name": p.sampler_name,
-            "batch_size": p.batch_size,
-            "n_iter": p.n_iter,
-            "steps": p.steps,
-            "cfg_scale": p.cfg_scale,
-            "clip_skip": p.clip_skip,
-            "height": p.height,
-            "width": p.width,
-            "seed": p.seed
+            "request": {
+                "model_name": model,
+                #image_base64 (later)
+                "prompt": p.prompt,
+                "negative_prompt": p.negative_prompt,
+                #sd_vae
+                "loras": [{"model_name": i, "strength": j} for (i,j) in loras],
+                "embeddings": [{"model_name": i} for i in tis],
+                #controlnet (later)
+                #hires_fix (later)
+                #refiner (later)
+                "width": p.width,
+                "height": p.height,
+                "image_num": n,
+                "steps": p.steps,
+                "seed": p.seed,
+                "clip_skip": p.clip_skip,
+                "guidance_scale": p.cfg_scale,
+                "sampler_name": p.sampler_name + ' Karras' if opts.schedulers_sigma == 'karras' else p.sampler_name
+                #strength (later)
+            }
         }
 
         if txt2img:
             if p.enable_hr:
-                payload.update({
-                    "enable_hr": True,
-                    "hr_upscaler": p.hr_upscaler,
-                    "hr_scale": p.hr_scale,
-                    "hr_resize_x": p.hr_resize_x,
-                    "hr_resize_y": p.hr_resize_y
+                if p.hr_scale:
+                    p.hr_resize_x = p.width*p.hr_scale
+                    p.hr_resize_y = p.height*p.hr_scale
+
+                payload["request"].update({
+                    "hires_fix": {
+                        "target_width": p.hr_resize_x,
+                        "target_height": p.hr_resize_y,
+                        "strength": p.denoising_strength,
+                        "upscaler": p.hr_upscaler
+                    },
+                    "refiner": {
+                        "switch_at": p.refiner_start
+                    }
                 })
         elif img2img:
-            payload.update({
-                "init_images": [encode_image(img) for img in p.init_images],
-                "denoising_strength": p.denoising_strength,
-                "resize_mode": p.resize_mode,
-                "image_cfg_scale": p.image_cfg_scale,
-                "mask_blur": p.mask_blur,
-                "inpainting_fill": p.inpainting_fill,
-                "inpaint_full_res": p.inpaint_full_res,
-                "inpaint_full_res_padding": p.inpaint_full_res_padding,
-                "inpainting_mask_invert": p.inpainting_mask_invert,
-                "initial_noise_multiplier": p.initial_noise_multiplier
+            payload["request"].update({
+                "image_base64": encode_image(p.init_images[0], format="PNG"),
+                "strength": p.denoising_strength,
+                "controlnet": {
+                    "units": [{
+                        "model_name": unit.model,
+                        "image_base64": encode_image(unit.image, format="PNG"),
+                        "strength": unit.weight,
+                        "preprocessor": unit.module,
+                        "guidance_start": unit.guidance_start,
+                        "guidance_end": unit.guidance_end
+                    } for unit in control_units]
+                }
             })
-            if p.image_mask:
-                payload["mask"] = [encode_image(p.image_mask)]
 
         return payload
 
@@ -243,35 +285,17 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
             if response['status'] == 'COMPLETED':
                 state.sampling_step = state.sampling_steps
                 state.textinfo = "Downloading images..."
-
                 images = download_images(img['url'] for img in response['output'])
-
                 if len(images) == 0:
                     raise RemoteInferenceProcessError(service, 'Generation failed, no output image')
-
-                n = len(images)
-                all_seeds=[p.seed + i*1000 for i in range(n)]
-                all_subseeds=n*[1000]
-                all_prompts=n*[p.prompt]
-                all_negative_prompts=n*[p.negative_prompt]
-                infotexts = n*[modules.processing.create_infotext(p, all_prompts, all_seeds, all_subseeds, all_negative_prompts=all_negative_prompts)]
-                
-                return Processed(
-                    p=p, 
-                    images_list=images,
-                    seed=p.seed,
-                    subseed=p.subseed,
-                    all_seeds=all_seeds,
-                    all_subseeds=all_subseeds,
-                    all_prompts=all_prompts,
-                    all_negative_prompts=all_negative_prompts,
-                    infotexts=infotexts
-                    )
+                return processed_from_images(p, images)
+            
             elif response['status'] == 'ERROR':
                 error_message = response['output']['error']['exception_message']
                 raise RemoteInferenceProcessError(service, f'Generation failed with error {error_message}')
             
             time.sleep(5)
+
 
     #================================== StableHorde ==================================
     elif service ==  RemoteService.StableHorde:
@@ -292,28 +316,10 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
             if status['done']:
                 state.sampling_step = state.sampling_steps
                 state.textinfo = "Downloading images..."
-
                 response = request_or_error(service, f'/v2/generate/status/{uuid}')
-
                 images = [get_image(generation['img']) for generation in response['generations']]
-                n = len(images)
-                all_seeds=[p.seed + i*1000 for i in range(n)]
-                all_subseeds=n*[1000]
-                all_prompts=n*[p.prompt]
-                all_negative_prompts=n*[p.negative_prompt]
-                infotexts = n*[modules.processing.create_infotext(p, all_prompts, all_seeds, all_subseeds, all_negative_prompts=all_negative_prompts)]
-                
-                return Processed(
-                    p=p, 
-                    images_list=images,
-                    seed=p.seed,
-                    subseed=p.subseed,
-                    all_seeds=all_seeds,
-                    all_subseeds=all_subseeds,
-                    all_prompts=all_prompts,
-                    all_negative_prompts=all_negative_prompts,
-                    infotexts=infotexts
-                    )
+                return processed_from_images(p, images)
+
             elif status['faulted']:
                 raise RemoteInferenceProcessError(service, 'Generation failed')
             elif not status['is_possible']:
@@ -324,52 +330,47 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
 
     #================================== NovitaAI ==================================
     elif service == RemoteService.NovitaAI:
-        response = request_or_error(service, ('/v2/txt2img' if txt2img else '/v2/img2img'), method='POST', data=payload)
-
-        if response['code'] != 0:
-            raise RemoteInferenceProcessError(service, response['msg'])
-        uuid = response['data']['task_id']
-
-        state.sampling_steps = 100
-        state.sampling_step = 0
-        start = time.time()
+        response = request_or_error(service, ('/v3/async/txt2img' if txt2img else '/v3/async/img2img'), method='POST', data=payload)
+        uuid = response['task_id']
 
         while True:
-            response = request_or_error(service, f'/v2/progress?task_id={uuid}')
+            response = request_or_error(service, f'/v3/async/task-result?task_id={uuid}')
 
-            if response['data']['status'] == 1:
-                elapsed = int(time.time() - start)
-                state.sampling_steps = elapsed + response['data']['eta_relative']
-                state.sampling_step = elapsed
+            if response['task']['status'] == 'TASK_STATUS_PROCESSING':
+                state.sampling_steps = 100
+                state.sampling_step = response['task']['progress_percent']
 
-                current_images = response['data']['current_images']
-                last_image_string = next((item for item in reversed(current_images) if item), None)
-                if last_image_string:
-                    state.assign_current_image(decode_image(last_image_string))
-
-            elif response['data']['status'] == 2:
-                state.sampling_step = state.sampling_steps
+            elif response['task']['status'] == 'TASK_STATUS_SUCCEED':
+                state.sampling_step = 100
                 state.textinfo = "Downloading images..."
+                images = download_images(img['image_url'] for img in response['images'])
+                return processed_from_images(p, images)
 
-                images = download_images(response['data']['imgs'])
-                info = json.loads(response['data']['info'])
-                return Processed(
-                    p=p, 
-                    images_list=images,
-                    seed=info['seed'],
-                    subseed=info['subseed'],
-                    all_seeds=info['all_seeds'],
-                    all_subseeds=info['all_subseeds'],
-                    all_prompts=info['all_prompts'],
-                    all_negative_prompts=info['all_negative_prompts'],
-                    infotexts=info['infotexts']
-                    )
-            elif response['data']['status'] == 3:
-                raise RemoteInferenceProcessError(service, 'Generation failed')
-            elif response['data']['status'] == 4:
-                raise RemoteInferenceProcessError(service, 'Generation timed out')
+            elif response['task']['status'] == 'TASK_STATUS_FAILED':
+                reason = response['task']['reason']
+                raise RemoteInferenceProcessError(service, f'Generation failed: {reason}')
             
             time.sleep(5)
+
+def processed_from_images(p, images):
+    n = len(images)
+    all_seeds=[p.seed + i*1000 for i in range(n)]
+    all_subseeds=n*[1000]
+    all_prompts=n*[p.prompt]
+    all_negative_prompts=n*[p.negative_prompt]
+    infotexts = n*[modules.processing.create_infotext(p, all_prompts, all_seeds, all_subseeds, all_negative_prompts=all_negative_prompts)]
+    
+    return Processed(
+        p=p, 
+        images_list=images,
+        seed=p.seed,
+        subseed=p.subseed,
+        all_seeds=all_seeds,
+        all_subseeds=all_subseeds,
+        all_prompts=all_prompts,
+        all_negative_prompts=all_negative_prompts,
+        infotexts=infotexts
+    )
 
 def save_images_and_add_grid(proc: Processed, p:StableDiffusionProcessing):
     if opts.save and not p.do_not_save_samples:

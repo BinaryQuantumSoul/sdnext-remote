@@ -283,7 +283,7 @@ def list_remote_embeddings(self, force_reload=False):
 
 def extra_networks_textual_inversions_list_items(self):
     for name, embedding in modules.sd_hijack.model_hijack.embedding_db.word_embeddings.items():
-        prompt = json.dumps(f" {embedding.filename}")
+        prompt = json.dumps(f" embedding:{embedding.filename}")
 
         yield {
             "type": 'Embedding',

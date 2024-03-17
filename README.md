@@ -20,8 +20,8 @@ Aimed to be universal for all providers, feel free to request other providers.
 |----------------------------|:-----------:|:-----------:|:-----------:|:---------:|:--------:|
 | ***Model browsing***       |             |             |             |           |          |
 | Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | ✅       |
-| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ✅      |
-| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | ✅      |
+| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ✅       |
+| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | ✅       |
 | ***Generation***           |             |             |             |           |          |
 | From Text                  | ✅          | 🆗+         | ✅          | ✅        | 🆗+      |
 | From Image                 | ✅          | 🆗          | ✅          | 🆗+       | 🆗       |
@@ -30,7 +30,7 @@ Aimed to be universal for all providers, feel free to request other providers.
 | Second pass (hires)        | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
 | Second pass (refiner)      | 🆗          | 🆗          | ❌          | 🆗+       | 🆗       |
 | Loras and TIs              | 🆗          | 🆗          | ✅          | ✅        | 🆗       |
-| ControlNet                 | 🆗          | 🆗          | ⚠️          | 🆗+       | 🆗       |
+| ControlNet                 | 🆗          | 🆗          | ⚠️           | 🆗+       | 🆗       |
 | IpAdapter                  | 🆗          | 🆗          | ❌          | 🆗+       | 🆗       |
 | Upscale & postprocess      | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
 | AnimateDiff                | 🆗          | 🆗          | ❌          | ❌        | 🆗       |

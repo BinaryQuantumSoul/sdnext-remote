@@ -23,17 +23,13 @@ import networks
 
 def on_app_started(blocks, _app):
     # SCRIPT IMPORTS
-    try:
-        import_script_data({
-            'controlnet': 'extensions-builtin/sd-webui-controlnet/scripts/controlnet.py',
-            'rembg': 'extensions-builtin/stable-diffusion-webui-rembg/scripts/postprocessing_rembg.py',
-            'codeformer': 'scripts/postprocessing_codeformer.py',
-            'gfpgan': 'scripts/postprocessing_gfpgan.py',
-            'upscale': 'scripts/postprocessing_upscale.py'
-        })
-    except ImportError as e:
-        modules.shared.log.error("RI: Unable to load sdnext-remote-inference. You need to set SD backend to 'original'")
-        return
+    import_script_data({
+        'controlnet': 'extensions-builtin/sd-webui-controlnet/scripts/controlnet.py',
+        'rembg': 'extensions-builtin/stable-diffusion-webui-rembg/scripts/postprocessing_rembg.py',
+        'codeformer': 'scripts/postprocessing_codeformer.py',
+        'gfpgan': 'scripts/postprocessing_gfpgan.py',
+        'upscale': 'scripts/postprocessing_upscale.py'
+    })
 
     # EXTRA NETWORKS
     modules.sd_models.list_models = make_conditional_hook(modules.sd_models.list_models, extension.remote_extra_networks.list_remote_models)
