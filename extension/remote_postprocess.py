@@ -8,7 +8,7 @@ from extension.utils_remote import RemoteInferencePostprocessError, get_current_
 def remote_run(self, pp: PostprocessedImage, args):
     service = get_current_api_service()
 
-    #================================== Stable Horde ==================================
+    #================================== StableHorde ==================================
     if service == RemoteService.StableHorde:      
         for script in self.scripts_in_preferred_order():
             process_args = {}

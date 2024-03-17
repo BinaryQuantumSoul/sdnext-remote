@@ -118,28 +118,32 @@ def request_or_error(service, path, no_headers=False, method='GET', data=None):
     return json.loads(response.content)
 
 cache = {}
-def get_or_error_with_cache(service, path, no_headers=False, cache_time=None):
+def get_cache_or_run(service, path, runnable, cache_time):
     global cache
     cache_key = (service, path)
     if cache_key in cache:
         result, timestamp = cache[cache_key]
-        if time.time() - timestamp <= (cache_time or modules.shared.opts.remote_extra_networks_cache_time):
-            if isinstance(result, RemoteInferenceAPIError):
+        if time.time() - timestamp <= cache_time:
+            if isinstance(result, Exception):
                 raise result
             else:
                 return result
 
     try:
-        result = request_or_error(service, path, no_headers)
+        result = runnable()
         cache[cache_key] = (result, time.time())
         return result
-    except RemoteInferenceAPIError as e:
+    except Exception as e:
         cache[cache_key] = (e, time.time())
         raise e
 
 def clear_cache(service, path):
     global cache
     cache.pop((service, path))
+
+def get_or_error_with_cache(service, path, cache_time):
+    runnable = lambda: request_or_error(service, path)
+    return get_cache_or_run(service, path, runnable, cache_time)
 
 def download_image(img_url):
     attempts = 5
@@ -195,21 +199,3 @@ def build_header(service):
         }
     else:
         return None
-
-stable_horde_controlnets = ["canny", "hed", "depth", "normal", "openpose", "seg", "scribble", "fakescribbles", "hough"]
-
-stable_horde_samplers =  {
-    "LMS": "k_lms",
-    "Heun": "k_heun",
-    "Euler": "k_euler",
-    "Euler a": "k_euler_a",
-    "DPM2": "k_dpm_2",
-    "DPM2 a": "k_dpm_2_a",
-    "DPM fast": "k_dpm_fast",
-    "DPM adaptive": "k_dpm_adaptive",
-    "DPM++ 2S a": "k_dpmpp_2s_a",
-    "DPM++ 2M": "k_dpmpp_2m",
-    "DPM solver": "dpmsolver",
-    "DPM++ SDE": "k_dpmpp_sde",
-    "DDIM": "DDIM",
-}

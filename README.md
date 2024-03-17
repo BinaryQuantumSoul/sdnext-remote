@@ -42,7 +42,7 @@ Aimed to be universal for all providers, feel free to request other providers.
 - ❌ not supported
 
 ## Additional features
-- Stable Horde worker settings
+- StableHorde worker settings
 - Dynamic samplers/upscalers lists
 - API calls caching
 - Hide NSFW networks option

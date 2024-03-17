@@ -10,7 +10,8 @@ import modules.shared
 from modules.shared import state, log, opts
 import modules.images
 
-from extension.utils_remote import encode_image, decode_image, download_images, get_current_api_service, get_image, request_or_error, RemoteService, stable_horde_controlnets, RemoteInferenceProcessError, imported_scripts, stable_horde_samplers
+from extension.utils_remote import encode_image, decode_image, download_images, get_current_api_service, get_image, request_or_error, RemoteService, RemoteInferenceProcessError, imported_scripts
+from extension.remote_extra_networks import get_models
 
 class RemoteModel:
     def __init__(self, checkpoint_info):
@@ -61,8 +62,11 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
         return payload
 
 
-    #================================== Stable Horde ==================================
+    #================================== StableHorde ==================================
     elif service ==  RemoteService.StableHorde:
+        stable_horde_controlnets = get_models(ModelType.CONTROLNET, service)
+        stable_horde_samplers = get_models(ModelType.SAMPLER, service)
+
         n = p.n_iter*p.batch_size
 
         if txt2img and len(control_units) > 1:
@@ -267,7 +271,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
             
             time.sleep(5)
 
-    #================================== Stable Horde ==================================
+    #================================== StableHorde ==================================
     elif service ==  RemoteService.StableHorde:
         response = request_or_error(service, '/v2/generate/async', method='POST', data=payload)
         uuid = response['id']

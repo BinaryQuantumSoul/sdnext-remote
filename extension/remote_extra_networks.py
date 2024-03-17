@@ -11,7 +11,7 @@ from modules.shared import log
 import network
 import networks
 
-from extension.utils_remote import ModelType, RemoteService, get_current_api_service, get_remote_endpoint, safeget, get_or_error_with_cache, stable_horde_controlnets, stable_horde_samplers
+from extension.utils_remote import ModelType, RemoteService, get_current_api_service, get_remote_endpoint, safeget, request_or_error, get_cache_or_run
 
 def log_debug_model_list(model_type, api_service):
     log.info(f'RI: Listing {model_type.name.lower()}s from {api_service}')
@@ -19,61 +19,72 @@ def log_debug_model_list(model_type, api_service):
 def log_info_model_count(model_type, api_service, count):
     log.info(f'Available {model_type.name.lower()}s: {api_service} items={count}')
 
-def sdnext_preview_url(url):
-    return get_remote_endpoint(RemoteService.SDNext) + url[1:]
-
 def get_models(model_type: ModelType, service: RemoteService):
+    runnable = lambda: api_get_models(service)
+    cache_time = modules.shared.opts.remote_balance_cache_time
+    return get_cache_or_run(service, 'get_models', runnable, cache_time)[model_type]
+
+def register_models(model_type: ModelType, service: RemoteService):
+    for model in get_models(model_type, service):
+        model.register()
+
+def new_remote_model(model_type: ModelType, name, preview_url=None, description=None, info=None, filename='', tags={}):
+    if model_type == ModelType.CHECKPOINT:
+        return RemoteCheckpointInfo(name, preview_url, description, info, filename, tags)
+    elif model_type == ModelType.LORA:
+        return RemoteLora(name, preview_url, description, info, filename, tags)
+    elif model_type == ModelType.EMBEDDING:
+        return RemoteEmbedding(name, preview_url, description, info, filename, tags)
+
+def api_get_models(service: RemoteService):
+    output_lists = {model_type: [] for model_type in ModelType}
+
     #================================== SD.Next ==================================
     if service == RemoteService.SDNext:
-        model_list = get_or_error_with_cache(service, "/sdapi/v1/extra-networks", no_headers=True)
+        model_list = request_or_error(service, "/sdapi/v1/extra-networks", no_headers=True)
         for model in model_list:
-            model.update({'name': model['name'].split('\\')[-1]})
+            model.update({
+                'name': model['name'].split('\\')[-1],
+                'preview': get_remote_endpoint(RemoteService.SDNext) + model['preview'][1:]
+            })
         model_list = sorted(model_list, key=lambda model: str.lower(model['name']))
 
-        if model_type == ModelType.CHECKPOINT:
-            for model in filter(lambda model: model['type'] == 'model', model_list):
-                RemoteCheckpointInfo(model['name'], sdnext_preview_url(model['preview']), filename=model['filename'])
+        for model in model_list:
+            current_type = {
+                'model': ModelType.CHECKPOINT,
+                'lora': ModelType.LORA,
+                'embedding': ModelType.EMBEDDING
+            }.get(model['type'])
+            if not current_type:
+                continue
 
-        elif model_type == ModelType.LORA:
-            for model in filter(lambda model: model['type'] == 'lora', model_list):
-                RemoteLora(model['name'], sdnext_preview_url(model['preview']), filename=model['filename'])
+            current_model = new_remote_model(current_type, model['name'], model['preview'], filename=model['filename'])
+            output_lists[current_type].append(current_model)
 
-        elif model_type == ModelType.EMBEDDING:
-            for model in filter(lambda model: model['type'] == 'embedding', model_list):
-                RemoteEmbedding(model['name'], sdnext_preview_url(model['preview']), filename=model['filename'])
-
-    #================================== Stable Horde ==================================
+    #================================== StableHorde ==================================
     elif service == RemoteService.StableHorde:
-        if model_type == ModelType.CHECKPOINT:          
-            model_list = get_or_error_with_cache(service, "/v2/status/models", no_headers=True)
+        model_list = request_or_error(service, "/v2/status/models", no_headers=True)
+        model_list = filter(lambda model: model['type'] == 'image', model_list)
+        
+        data = json.loads(requests.get('https://github.com/Haidra-Org/AI-Horde-image-model-reference/blob/main/stable_diffusion.json').content)
+        data_models = json.loads(''.join(data['payload']['blob']['rawLines']))
+        
+        checkpoints = []
+        for model in sorted(model_list, key=lambda model: (-model['count'], model['name'])):
+            model_data = safeget(data_models, model['name'])
+            if not safeget(model_data, 'nsfw') or modules.shared.opts.remote_show_nsfw_models: 
+                checkpoints.append(RemoteCheckpointInfo(f"{model['name']} ({model['count']})", safeget(model_data,'showcases',0), safeget(model_data,'description'), filename=model['name']))
 
-            model_list = filter(lambda model: model['type'] == 'image', model_list)
-            
-            data = json.loads(requests.get('https://github.com/Haidra-Org/AI-Horde-image-model-reference/blob/main/stable_diffusion.json').content)
-            data_models = json.loads(''.join(data['payload']['blob']['rawLines']))
-            
-            for model in sorted(model_list, key=lambda model: (-model['count'], model['name'])):
-                model_data = safeget(data_models, model['name'])
-                if not safeget(model_data, 'nsfw') or modules.shared.opts.remote_show_nsfw_models: 
-                    RemoteCheckpointInfo(f"{model['name']} ({model['count']})", safeget(model_data,'showcases',0), safeget(model_data,'description'), filename=model['name'])
-    
-        elif model_type == ModelType.LORA:
-            pass
-        elif model_type == ModelType.EMBEDDING:
-            pass
-        elif model_type == ModelType.SAMPLER:
-            return list(stable_horde_samplers.keys())
-        elif model_type == ModelType.UPSCALER:
-            return ['RealESRGAN_x2plus', 'RealESRGAN_x4plus', 'RealESRGAN_x4plus_anime_6B', 'NMKD_Siax', '4x_AnimeSharp']
-        elif model_type == ModelType.CONTROLNET:
-            return stable_horde_controlnets
+        output_lists.update({
+            ModelType.CHECKPOINT: checkpoints,
+            ModelType.SAMPLER: {"LMS": "k_lms", "Heun": "k_heun", "Euler": "k_euler", "Euler a": "k_euler_a", "DPM2": "k_dpm_2", "DPM2 a": "k_dpm_2_a", "DPM fast": "k_dpm_fast", "DPM adaptive": "k_dpm_adaptive", "DPM++ 2S a": "k_dpmpp_2s_a", "DPM++ 2M": "k_dpmpp_2m", "DPM solver": "dpmsolver", "DPM++ SDE": "k_dpmpp_sde", "DDIM": "DDIM"},
+            ModelType.UPSCALER: ['RealESRGAN_x2plus', 'RealESRGAN_x4plus', 'RealESRGAN_x4plus_anime_6B', 'NMKD_Siax', '4x_AnimeSharp'], 
+            ModelType.CONTROLNET: ["canny", "hed", "depth", "normal", "openpose", "seg", "scribble", "fakescribbles", "hough"]
+        })
 
     #================================== NovitaAI ==================================
     elif service == RemoteService.NovitaAI:
-        if not model_type in [ModelType.CHECKPOINT, ModelType.LORA, ModelType.EMBEDDING]:
-            return
-
-        model_list = get_or_error_with_cache(service, "/v2/models", no_headers=True)
+        model_list = request_or_error(service, "/v2/models", no_headers=True)
         model_list = model_list['data']['models']
         for model in model_list:
             model.update({'name': model['name'].lstrip()})
@@ -83,21 +94,58 @@ def get_models(model_type: ModelType, service: RemoteService):
             for model in model_list:
                 if 'civitai_images' in model:
                     model['civitai_images'] = list(filter(lambda img: img['nsfw'] == 'None', model['civitai_images']))
+        
+        for model in model_list:
+            current_type = {
+                'checkpoint': ModelType.CHECKPOINT,
+                'lora': ModelType.LORA,
+                'textualinversion': ModelType.EMBEDDING
+            }.get(model['type'])
+            if not current_type:
+                continue
+            
+            tags = {tag:0 for tag in model['civitai_tags'].split(',')} if 'civitai_tags' in model else {}
+            current_model = new_remote_model(current_type, model['name'], safeget(model, 'civitai_images', 0, 'url'), filename=model['sd_name'], tags=tags)
+            output_lists[current_type].append(current_model)
+    
+    #================================== ComfyICU ==================================
+    elif service == RemoteService.ComfyICU:
+        data = requests.get("https://docs.google.com/spreadsheets/d/1uKTAaD6l1tc5uMBy4EdoN1TL_07Txavjmw2IhUdlUtQ/gviz/tq?tqx=out:json").content
+        data = (lambda s: s[s.find('(')+1:s.rfind(')')])(str(data))
+        data = json.loads(data)
 
-        if model_type == ModelType.CHECKPOINT:
-            for model in filter(lambda model: model['type'] == 'checkpoint', model_list):
-                tags = {tag:0 for tag in model['civitai_tags'].split(',')} if 'civitai_tags' in model else {}
-                RemoteCheckpointInfo(model['name'], safeget(model, 'civitai_images', 0, 'url'), filename=model['sd_name'], tags=tags)
+        model_list = []
+        for r in data['table']['rows'][1:]:
+            if not r['c'][2]:
+                continue
+            
+            url = r['c'][0]['v']
+            typ = r['c'][1]['v']
+            filename = r['c'][3]['v'] or r['c'][2]['v']
 
-        elif model_type == ModelType.LORA:          
-            for model in filter(lambda model: model['type'] == 'lora', model_list):
-                tags = {tag:0 for tag in model['civitai_tags'].split(',')} if 'civitai_tags' in model else {}
-                RemoteLora(model['name'], safeget(model, 'civitai_images', 0, 'url'), tags=tags, filename=model['sd_name'])
+            image = None
+            if url.startswith('https://civitai.com'):
+                startIndex = len("https://civitai.com/api/download/models/")
+                modelid = url[startIndex:url.find('?')]
+                out = json.loads(requests.get(f"https://civitai.com/api/v1/models/{modelid}").content)
+                image = safeget(out, 'modelVersions', 0, 'images', 0, 'url')
+            
+            model_list.append({'filename': filename, 'type': typ, 'image': image})
 
-        elif model_type == ModelType.EMBEDDING:
-            for model in filter(lambda model: model['type'] == 'textualinversion', model_list):
-                tags = {tag:0 for tag in model['civitai_tags'].split(',')} if 'civitai_tags' in model else {}
-                RemoteEmbedding(model['name'], safeget(model, 'civitai_images', 0, 'url'), tags=tags, filename=model['sd_name'])
+        for model in model_list:
+            current_type = {
+                'checkpoints': ModelType.CHECKPOINT,
+                'loras': ModelType.LORA,
+                'embeddings': ModelType.EMBEDDING
+            }.get(model['type'])
+            if not current_type:
+                continue
+            
+            current_model = new_remote_model(current_type, model['filename'].rsplit('.', 1)[0], model['image'], filename=model['filename'])
+            output_lists[current_type].append(current_model)
+
+    return output_lists
+
         
 class PreviewDescriptionInfo():
     no_preview = modules.ui_extra_networks.ExtraNetworksPage.link_preview(None, 'html/card-no-preview.png')
@@ -123,8 +171,6 @@ class RemoteCheckpointInfo(modules.sd_models.CheckpointInfo, PreviewDescriptionI
 
         self.tags = tags
 
-        self.register()
-
 def list_remote_models():
     api_service = get_current_api_service()
 
@@ -132,7 +178,7 @@ def list_remote_models():
     modules.sd_models.checkpoint_aliases.clear()
 
     log_debug_model_list(ModelType.CHECKPOINT, api_service)
-    get_models(ModelType.CHECKPOINT, api_service)
+    register_models(ModelType.CHECKPOINT, api_service)
     log_info_model_count(ModelType.CHECKPOINT, api_service, len(modules.sd_models.checkpoints_list))
 
 def extra_networks_checkpoints_list_items(self):
@@ -154,7 +200,7 @@ def extra_networks_checkpoints_list_items(self):
 
 #============================================= LORAS =============================================       
 class RemoteLora(network.NetworkOnDisk, PreviewDescriptionInfo):
-    def __init__(self, name, preview_url=None, description=None, info=None, tags={}, filename=''):
+    def __init__(self, name, preview_url=None, description=None, info=None, filename='', tags={}):
         PreviewDescriptionInfo.__init__(self, preview_url, description, info)
 
         self.name = name
@@ -165,8 +211,6 @@ class RemoteLora(network.NetworkOnDisk, PreviewDescriptionInfo):
         self.ssmd_cover_images = None
         self.metadata = {}
         self.hash = self.shorthash = None
-
-        self.register()
 
     def register(self):
         networks.available_networks[self.name] = self
@@ -185,7 +229,7 @@ def list_remote_loras():
     networks.forbidden_network_aliases.update({"none": 1, "Addams": 1})
 
     log_debug_model_list(ModelType.LORA, api_service)
-    get_models(ModelType.LORA, api_service)
+    register_models(ModelType.LORA, api_service)
     log_info_model_count(ModelType.LORA, api_service, len(networks.available_networks))
 
 def extra_networks_loras_list_items(self):
@@ -217,8 +261,6 @@ class RemoteEmbedding(modules.textual_inversion.textual_inversion.Embedding, Pre
         self.filename = filename
         self.tags = tags
 
-        self.register()
-
     def register(self):
         modules.sd_hijack.model_hijack.embedding_db.word_embeddings[self.name] = self
 
@@ -236,7 +278,7 @@ def list_remote_embeddings(self, force_reload=False):
     self.embedding_dirs.clear()
 
     log_debug_model_list(ModelType.EMBEDDING, api_service)
-    get_models(ModelType.EMBEDDING, api_service)
+    register_models(ModelType.EMBEDDING, api_service)
     log_info_model_count(ModelType.EMBEDDING, api_service, len(self.word_embeddings))
 
 def extra_networks_textual_inversions_list_items(self):

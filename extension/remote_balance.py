@@ -25,10 +25,10 @@ def get_remote_balance(service):
 
     try:
         if service == RemoteService.StableHorde:
-            response = get_or_error_with_cache(service, '/v2/find_user', cache_time=cache_time)
+            response = get_or_error_with_cache(service, '/v2/find_user', cache_time)
             return int(response['kudos'])
         elif service == RemoteService.NovitaAI:
-            response = get_or_error_with_cache(service, '/v3/user', cache_time=cache_time)
+            response = get_or_error_with_cache(service, '/v3/user', cache_time)
             return response['credit_balance']/10000.
     except RemoteInferenceAPIError:
         return None
