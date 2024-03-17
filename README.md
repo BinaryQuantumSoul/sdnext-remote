@@ -19,25 +19,29 @@ Aimed to be universal for all providers, feel free to request other providers.
 |                            | SD.Next API | ComfyUI API | StableHorde | NovitaAI | ComfyICU |
 |----------------------------|:-----------:|:-----------:|:-----------:|:---------:|:--------:|
 | ***Model browsing***       |             |             |             |           |          |
-| Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | ❌       |
-| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ❌       |
-| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | ❌       |
+| Checkpoints browser        | ✅          | 🆗          | ✅          | ✅        | 🆗+       |
+| Loras browser              | ✅          | 🆗          | ⭕          | ✅        | 🆗+      |
+| Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | 🆗+      |
 | ***Generation***           |             |             |             |           |          |
 | From Text                  | ✅          | 🆗+         | ✅          | ✅        | 🆗+      |
 | From Image                 | ✅          | 🆗          | ✅          | 🆗+       | 🆗       |
 | Inpainting                 | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
+| Outpainting                | 🆗          | 🆗          | 🆗          | ❌        | 🆗       |
 | Second pass (hires)        | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
-| Second pass (refiner)      | 🆗          | 🆗          | ❌          | 🆗        | 🆗       |
+| Second pass (refiner)      | 🆗          | 🆗          | ❌          | 🆗+       | 🆗       |
 | Loras and TIs              | 🆗          | 🆗          | ✅          | ✅        | 🆗       |
-| ControlNet                 | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
+| ControlNet                 | 🆗          | 🆗          | ⚠️          | 🆗+       | 🆗       |
+| IpAdapter                  | 🆗          | 🆗          | ❌          | 🆗+       | 🆗       |
 | Upscale & postprocess      | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
+| AnimateDiff                | 🆗          | 🆗          | ❌          | ❌        | 🆗       |
 | ***User***                 |             |             |             |           |          |
 | Balance (credits/kudos)    | ⭕          | ⭕          | ✅          | ✅        | ❌       |
 | Generation cost estimation | ⭕          | ⭕          | 🆗          | 🆗        | ❌       |
 
 - ✅ functional
+- ⚠️ limited functionality
 - 🆗+ work in progress
-- 🆗 planned
+- 🆗 roadmap
 - ⭕ not needed
 - ❌ not supported
 
