@@ -23,17 +23,18 @@ Aimed to be universal for all providers, feel free to request other providers.
 | Loras browser              | ✅          | 🆗          | ⭕          | ✅        | ✅       |
 | Embeddings browser         | ✅          | 🆗          | ⭕          | ✅        | ✅       |
 | ***Generation***           |             |             |             |           |          |
-| From Text                  | ✅          | 🆗+         | ✅          | ✅        | 🆗+      |
-| From Image                 | ✅          | 🆗          | ✅          | 🆗+       | 🆗       |
-| Inpainting                 | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
-| Outpainting                | 🆗          | 🆗          | 🆗          | ❌        | 🆗       |
+| Txt2img                    | ✅          | 🆗+         | ✅          | ✅        | 🆗+      |
 | Second pass (hires)        | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
 | Second pass (refiner)      | 🆗          | 🆗          | ❌          | 🆗+       | 🆗       |
+| Img2img                    | ✅          | 🆗          | ✅          | 🆗+       | 🆗       |
+| Inpainting                 | 🆗+         | 🆗          | ✅          | 🆗+       | 🆗       |
+| Outpainting                | 🆗          | 🆗          | 🆗          | 🆗+       | 🆗       |
+| Upscale & Postprocess      | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
+| AnimateDiff                | 🆗          | 🆗          | ❌          | ❌        | 🆗       |
+| ***Generation control***  |             |             |             |           |          |
 | Loras and TIs              | 🆗          | 🆗          | ✅          | ✅        | 🆗       |
 | ControlNet                 | 🆗          | 🆗          | ⚠️           | 🆗+       | 🆗       |
 | IpAdapter                  | 🆗          | 🆗          | ❌          | 🆗+       | 🆗       |
-| Upscale & postprocess      | 🆗          | 🆗          | ✅          | 🆗        | 🆗       |
-| AnimateDiff                | 🆗          | 🆗          | ❌          | ❌        | 🆗       |
 | ***User***                 |             |             |             |           |          |
 | Balance (credits/kudos)    | ⭕          | ⭕          | ✅          | ✅        | ❌       |
 | Generation cost estimation | ⭕          | ⭕          | 🆗          | 🆗        | ❌       |
