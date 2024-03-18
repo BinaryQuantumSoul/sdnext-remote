@@ -34,6 +34,7 @@ def fake_reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='mo
 def build_payload(service: RemoteService, p: StableDiffusionProcessing):
     txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
     img2img = isinstance(p, StableDiffusionProcessingImg2Img)
+    inpainting = (p.image_mask is not None)
     if not txt2img and not img2img:
         raise TypeError("Neither txt2img nor img2img")
 
@@ -165,7 +166,7 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
                 payload["source_image"] = encode_image(Image.fromarray(unit.image['image']))
         elif img2img:
             payload["source_image"] = encode_image(p.init_images[0])
-            if p.image_mask:
+            if inpainting:
                 payload["source_processing"] = "inpainting"
                 payload["source_mask"] = encode_image(p.image_mask)
 
@@ -234,6 +235,16 @@ def build_payload(service: RemoteService, p: StableDiffusionProcessing):
                     } for unit in control_units]
                 }
             })
+            if inpainting:
+                payload["request"].update({
+                    "mask_image_base64": encode_image(p.image_mask, format="PNG"),
+                    "mask_blur": p.mask_blur,
+                    "inpainting_full_res": int(p.inpaint_full_res),
+                    "inpainting_full_res_padding": p.inpaint_full_res_padding,
+                    "inpainting_mask_invert": p.inpainting_mask_invert,
+                    "initial_noise_multiplier": p.initial_noise_multiplier,
+                    "inpainting_fill": p.inpainting_fill
+                })
 
         return payload
 
@@ -245,6 +256,8 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
 
     payload = build_payload(service, p)
     txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
+    img2img = isinstance(p, StableDiffusionProcessingImg2Img)
+    inpainting = (p.image_mask is not None)
 
     #================================== SD.Next ==================================
     if service == RemoteService.SDNext:
@@ -330,7 +343,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
 
     #================================== NovitaAI ==================================
     elif service == RemoteService.NovitaAI:
-        response = request_or_error(service, ('/v3/async/txt2img' if txt2img else '/v3/async/img2img'), method='POST', data=payload)
+        response = request_or_error(service, ('/v3/async/txt2img' if txt2img else ('/v3/async/inpainting' if inpainting else '/v3/async/img2img')), method='POST', data=payload)
         uuid = response['task_id']
 
         while True:
