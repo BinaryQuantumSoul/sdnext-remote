@@ -34,7 +34,7 @@ def fake_reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='mo
 def build_payload(service: RemoteService, p: StableDiffusionProcessing):
     txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
     img2img = isinstance(p, StableDiffusionProcessingImg2Img)
-    inpainting = (p.image_mask is not None)
+    inpainting = (p.image_mask is not None if img2img else False)
     if not txt2img and not img2img:
         raise TypeError("Neither txt2img nor img2img")
 
@@ -257,7 +257,7 @@ def generate_images(service: RemoteService, p: StableDiffusionProcessing) -> Pro
     payload = build_payload(service, p)
     txt2img = isinstance(p, StableDiffusionProcessingTxt2Img)
     img2img = isinstance(p, StableDiffusionProcessingImg2Img)
-    inpainting = (p.image_mask is not None)
+    inpainting = (p.image_mask is not None if img2img else False)
 
     #================================== SD.Next ==================================
     if service == RemoteService.SDNext:
