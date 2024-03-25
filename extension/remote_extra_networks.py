@@ -66,12 +66,11 @@ def api_get_models(service: RemoteService):
         model_list = request_or_error(service, "/v2/status/models", no_headers=True)
         model_list = filter(lambda model: model['type'] == 'image', model_list)
         
-        data = json.loads(requests.get('https://github.com/Haidra-Org/AI-Horde-image-model-reference/blob/main/stable_diffusion.json').content)
-        data_models = json.loads(''.join(data['payload']['blob']['rawLines']))
-        
+        data = json.loads(requests.get('https://raw.githubusercontent.com/Haidra-Org/AI-Horde-image-model-reference/main/stable_diffusion.json').content)
+
         checkpoints = []
         for model in sorted(model_list, key=lambda model: (-model['count'], model['name'])):
-            model_data = safeget(data_models, model['name'])
+            model_data = safeget(data, model['name'])
             if not safeget(model_data, 'nsfw') or modules.shared.opts.remote_show_nsfw_models: 
                 checkpoints.append(RemoteCheckpointInfo(f"{model['name']} ({model['count']})", safeget(model_data,'showcases',0), safeget(model_data,'description'), filename=model['name']))
 
